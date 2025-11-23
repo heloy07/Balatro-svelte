@@ -1,0 +1,18 @@
+/* Global styles */
+@font-face {
+    font-family: 'm6x11plus';
+    src: url('/fonts/m6x11plus.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+:root {
+    --font-pixel: 'm6x11plus', monospace;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: var(--font-pixel);
+}
