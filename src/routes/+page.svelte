@@ -3,6 +3,9 @@
     import { game } from '$lib/stores/game';
     import Hand from '$lib/components/Hand.svelte';
     import Shop from '$lib/components/Shop.svelte';
+    import Sidebar from '$lib/components/Sidebar.svelte';
+    import BlindSelect from '$lib/components/BlindSelect.svelte';
+    import BackgroundShader from '$lib/components/BackgroundShader.svelte';
     import { evaluateHand } from '$lib/utils/poker';
     import type { PokerHand } from '$lib/types';
 
@@ -30,95 +33,68 @@
     function devSkipToShop() {
         game.enterShop();
     }
+
+    function devSkipToBoss() {
+        game.debugBoss();
+    }
 </script>
 
 <div class="game-container">
+    <BackgroundShader />
+    
+    <div class="dev-controls">
+        <button on:click={devSkipToShop}>Shop</button>
+        <button on:click={devSkipToBoss}>Boss</button>
+    </div>
+    
     {#if $game.state === 'shop'}
         <Shop />
+    {:else if $game.state === 'blind_select'}
+        <!-- Sidebar for Blind Select -->
+        <Sidebar mode="blind_select" />
+        
+        <!-- Blind Selection Area -->
+        <div class="main-area">
+            <!-- Top Section: Jokers and Consumables -->
+            <div class="top-section">
+                <!-- Jokers Area -->
+                <div class="jokers-area">
+                    <div class="area-label">Jokers ({$game.jokers.length}/5)</div>
+                    <div class="slots-row">
+                        {#each $game.jokers as joker}
+                            <div class="joker-card" title="{joker.name}: {joker.description}">
+                                <div class="joker-name">{joker.name}</div>
+                                <div class="joker-rarity {joker.rarity.toLowerCase()}">{joker.rarity}</div>
+                            </div>
+                        {/each}
+                        {#each Array(5 - $game.jokers.length) as _}
+                            <div class="empty-slot"></div>
+                        {/each}
+                    </div>
+                </div>
+
+                <!-- Consumables Area -->
+                <div class="consumables-area">
+                    <div class="area-label">Consumables ({$game.consumables.length}/{$game.max_consumables})</div>
+                    <div class="slots-row">
+                        {#each $game.consumables as consumable}
+                            <div class="consumable-card">
+                                {consumable.name}
+                            </div>
+                        {/each}
+                        {#each Array($game.max_consumables - $game.consumables.length) as _}
+                            <div class="empty-slot"></div>
+                        {/each}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Blind Selection Panels -->
+            <BlindSelect />
+        </div>
     {:else}
         <!-- Sidebar (HUD) -->
-        <div class="sidebar">
-            <!-- Blind Info -->
-            <div class="blind-box">
-                <div class="blind-name">{$game.current_blind.name}</div>
-                <div class="blind-target">
-                    <div class="score-label">Score at least</div>
-                    <div class="target-value">
-                        <span class="chip-icon">❂</span>
-                        {$game.current_blind.score_to_beat.toLocaleString()}
-                    </div>
-                    <div class="reward-label">to earn <span class="money-text">${$game.current_blind.reward}</span></div>
-                </div>
-            </div>
-
-            <!-- Round Score -->
-            <div class="score-box">
-                <div class="label">Round Score</div>
-                <div class="value">
-                    <span class="chip-icon">❂</span>
-                    {$game.current_score.toLocaleString()}
-                </div>
-            </div>
-
-            <!-- Hand Info (Current Hand) -->
-            <div class="hand-info-box">
-                {#if currentHand}
-                    <div class="hand-name">{currentHand.name} <span class="level">lvl.1</span></div>
-                    <div class="hand-score">
-                        <span class="chips">{currentHand.chips}</span>
-                        <span class="x">X</span>
-                        <span class="mult">{currentHand.mult}</span>
-                    </div>
-                {:else}
-                    <div class="hand-name">Choose Cards</div>
-                    <div class="hand-score">
-                        <span class="chips">0</span>
-                        <span class="x">X</span>
-                        <span class="mult">0</span>
-                    </div>
-                {/if}
-            </div>
-
-            <!-- Stats Grid -->
-            <div class="stats-grid">
-                <!-- Dev Mode Button -->
-                <button class="dev-shop-btn" on:click={devSkipToShop} title="Dev: Skip to Shop">
-                    🛠️ Shop
-                </button>
-                
-                <div class="stat-btn red">
-                    <div class="stat-label">Run Info</div>
-                </div>
-                <div class="stat-group">
-                    <div class="stat-item blue">
-                        <div class="stat-label">Hands</div>
-                        <div class="stat-value">{$game.hands}</div>
-                    </div>
-                    <div class="stat-item blue">
-                        <div class="stat-label">Discards</div>
-                        <div class="stat-value">{$game.discards}</div>
-                    </div>
-                </div>
-                <div class="money-box">
-                    <div class="money-value">${$game.money}</div>
-                </div>
-                <div class="stat-btn orange">
-                    <div class="stat-label">Options</div>
-                </div>
-                <div class="stat-group">
-                    <div class="stat-item dark">
-                        <div class="stat-label">Ante</div>
-                        <div class="stat-value">
-                            <span class="accent">{$game.ante}</span>/8
-                        </div>
-                    </div>
-                    <div class="stat-item dark">
-                        <div class="stat-label">Round</div>
-                        <div class="stat-value">{$game.round}</div>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <Sidebar mode="game" />
 
         <!-- Main Game Area -->
         <div class="main-area">
@@ -208,139 +184,8 @@
         height: 100vh;
         width: 100vw;
         font-family: var(--font-pixel);
+        overflow: hidden; /* Prevent scrollbars if shader is slightly off */
     }
-
-    /* Sidebar Styles */
-    .sidebar {
-        width: 250px;
-        background-color: var(--sidebar-bg);
-        display: flex;
-        flex-direction: column;
-        padding: 10px;
-        gap: 10px;
-        border-right: 4px solid #1a1a1a;
-        box-shadow: 5px 0 15px rgba(0,0,0,0.5);
-        z-index: 100;
-    }
-
-    .blind-box {
-        background-color: var(--accent-gold);
-        border-radius: 10px;
-        padding: 10px;
-        color: #333;
-        text-align: center;
-        border: 3px solid #8a6d1f;
-        box-shadow: inset 0 0 10px rgba(0,0,0,0.2);
-    }
-
-    .blind-name {
-        font-size: 1.8rem;
-        font-weight: bold;
-        text-transform: uppercase;
-        margin-bottom: 5px;
-        text-shadow: 1px 1px 0 rgba(255,255,255,0.5);
-    }
-
-    .blind-target {
-        background-color: rgba(0,0,0,0.8);
-        border-radius: 8px;
-        padding: 8px;
-        color: white;
-    }
-
-    .score-label { font-size: 0.8rem; color: #aaa; }
-    .target-value { font-size: 2rem; color: white; font-weight: bold; display: flex; align-items: center; justify-content: center; gap: 5px; }
-    .reward-label { font-size: 0.8rem; color: #aaa; }
-    .money-text { color: var(--accent-gold); font-weight: bold; }
-
-    .score-box {
-        background-color: #111;
-        border-radius: 8px;
-        padding: 10px;
-        text-align: center;
-        border: 2px solid #444;
-    }
-    .score-box .label { color: #aaa; font-size: 0.9rem; }
-    .score-box .value { font-size: 1.8rem; color: white; display: flex; align-items: center; justify-content: center; gap: 5px; }
-
-    .hand-info-box {
-        background-color: #111;
-        border-radius: 8px;
-        padding: 10px;
-        text-align: center;
-        border: 2px solid #444;
-        margin-bottom: 10px;
-    }
-    .hand-name { font-size: 1.4rem; color: white; margin-bottom: 5px; }
-    .level { font-size: 0.8rem; color: #aaa; }
-    .hand-score { 
-        background-color: #222; 
-        border-radius: 5px; 
-        padding: 5px; 
-        display: flex; 
-        justify-content: center; 
-        align-items: center; 
-        gap: 5px; 
-        font-size: 1.8rem;
-    }
-    .chips { color: #457B9D; background: #111; padding: 0 5px; border-radius: 3px; }
-    .mult { color: #E63946; background: #111; padding: 0 5px; border-radius: 3px; }
-    .x { color: #aaa; font-size: 1rem; }
-
-    /* Stats Grid */
-    .stats-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 8px;
-        margin-top: auto;
-    }
-
-    .stat-btn {
-        grid-column: span 1;
-        height: 60px;
-        border-radius: 8px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1.2rem;
-        color: white;
-        border: 2px solid rgba(0,0,0,0.2);
-        cursor: pointer;
-        box-shadow: 0 4px 0 rgba(0,0,0,0.3);
-    }
-    .stat-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(0,0,0,0.3); }
-    .stat-btn.red { background-color: var(--primary-red); }
-    .stat-btn.orange { background-color: var(--primary-orange); color: #333; }
-
-    .stat-group {
-        display: flex;
-        gap: 5px;
-    }
-    .stat-item {
-        flex: 1;
-        border-radius: 8px;
-        padding: 5px;
-        text-align: center;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-    }
-    .stat-item.blue { background-color: var(--primary-blue); color: white; }
-    .stat-item.dark { background-color: #111; border: 1px solid #444; }
-    
-    .stat-label { font-size: 0.7rem; text-transform: uppercase; opacity: 0.8; }
-    .stat-value { font-size: 1.4rem; font-weight: bold; }
-    .accent { color: var(--primary-orange); }
-
-    .money-box {
-        grid-column: span 2;
-        background-color: #111;
-        border-radius: 8px;
-        padding: 10px;
-        text-align: center;
-        border: 2px solid #444;
-    }
-    .money-value { font-size: 2rem; color: var(--accent-gold); text-shadow: 0 0 5px rgba(212, 175, 55, 0.5); }
 
     /* Main Area */
     .main-area {
@@ -349,6 +194,8 @@
         flex-direction: column;
         padding: 20px;
         position: relative;
+        /* Ensure main area content is above background but below modals if any */
+        z-index: 1; 
     }
 
     .top-section {
@@ -364,6 +211,7 @@
         text-transform: uppercase;
         margin-bottom: 5px;
         margin-left: 5px;
+        text-shadow: 1px 1px 0 #000;
     }
 
     .slots-row {
@@ -401,6 +249,7 @@
         font-size: 0.7rem;
         position: relative;
         box-sizing: border-box;
+        box-shadow: 0 4px 0 rgba(0,0,0,0.3);
     }
 
     .joker-card {
@@ -478,7 +327,14 @@
         box-shadow: 0 4px 0 rgba(0,0,0,0.3);
         transition: transform 0.1s, box-shadow 0.1s;
         width: 100%;
+        font-weight: bold;
+        color: white;
     }
+    .action-btn:active { transform: translateY(4px); box-shadow: 0 2px 0 rgba(0,0,0,0.3); }
+    .action-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+    .play-btn { background-color: var(--primary-blue); }
+    .discard-btn { background-color: var(--primary-red); }
 
     .sort-btn {
         padding: 8px 12px;
@@ -493,11 +349,6 @@
     }
     .sort-btn:hover { background: #555; color: white; }
     .sort-btn:active { background: #333; }
-
-    .action-buttons {
-        display: flex;
-        gap: 20px;
-    }
 
     .btn {
         padding: 12px 40px;
@@ -515,37 +366,32 @@
     .btn:active { transform: translateY(4px); box-shadow: 0 2px 0 rgba(0,0,0,0.3); }
     .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
 
-    .play-btn { background-color: var(--primary-blue); }
-    .discard-btn { background-color: var(--primary-red); }
-
-    .dev-shop-btn {
-        padding: 8px 16px;
-        font-size: 1rem;
-        font-family: var(--font-pixel);
-        background: linear-gradient(135deg, #ff6b35, #f7931e);
-        border: 2px solid #fff;
-        border-radius: 6px;
-        cursor: pointer;
-        color: white;
-        font-weight: bold;
-        box-shadow: 0 4px 0 rgba(0,0,0,0.3);
-        transition: all 0.1s;
-        grid-column: span 2;
-    }
-    .dev-shop-btn:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 0 rgba(0,0,0,0.3);
-    }
-    .dev-shop-btn:active {
-        transform: translateY(2px);
-        box-shadow: 0 2px 0 rgba(0,0,0,0.3);
-    }
-
     .game-over-modal, .won-blind-modal {
         background: rgba(0,0,0,0.9);
         padding: 40px;
         border-radius: 20px;
         text-align: center;
         border: 4px solid white;
+        box-shadow: 0 0 20px rgba(0,0,0,0.8);
+    }
+
+    .dev-controls {
+        position: absolute;
+        bottom: 10px;
+        right: 10px;
+        display: flex;
+        gap: 5px;
+        z-index: 100;
+        opacity: 0.5;
+    }
+    .dev-controls:hover { opacity: 1; }
+    .dev-controls button {
+        background: #333;
+        color: #fff;
+        border: 1px solid #555;
+        padding: 5px 10px;
+        cursor: pointer;
+        font-family: var(--font-pixel);
+        font-size: 0.8rem;
     }
 </style>

@@ -1,0 +1,73 @@
+export const BLIND_ORDER = [
+    'Small Blind',
+    'Big Blind',
+    'The Ox',
+    'The House',
+    'The Club',
+    'The Fish',
+    'The Window',
+    'The Hook',
+    'The Manacle',
+    'The Wall',
+    'The Wheel',
+    'The Arm',
+    'The Psychic',
+    'The Goad',
+    'The Water',
+    'The Serpent',
+    'The Pillar',
+    'The Eye',
+    'The Mouth',
+    'The Plant',
+    'The Needle',
+    'The Head',
+    'The Tooth',
+    'The Mark',
+    'The Flint',
+    'Crimson Heart',
+    'Cerulean Bell',
+    'Amber Acorn',
+    'Verdant Leaf',
+    'Violet Vessel',
+];
+
+export const BLIND_MAP: Record<string, number> = {};
+for (const [index, name] of BLIND_ORDER.entries()) {
+    BLIND_MAP[name] = index;
+}
+
+export const BOSS_BLINDS = BLIND_ORDER.filter(name => name !== 'Small Blind' && name !== 'Big Blind' && name !== 'Mystery Blind');
+
+export const BLIND_DATA: Record<string, { description: string }> = {
+    'Small Blind': { description: '' },
+    'Big Blind': { description: '' },
+    'The Club': { description: 'All Club cards are debuffed' },
+    'The Needle': { description: 'Play only 1 hand' },
+    'The Arm': { description: 'Decrease level of played poker hand' },
+    'The Plant': { description: 'All face cards are debuffed' },
+    'The Wheel': { description: '1 in 7 cards get drawn face down' },
+    'The Mouth': { description: 'Play only 1 hand type this round' },
+    'The Eye': { description: 'No repeat hand types this round' },
+    'The Pillar': { description: 'Cards played previously this Ante are debuffed' },
+    'The House': { description: 'First hand is drawn face down' },
+    'The Hook': { description: 'Discards 2 random cards per hand played' },
+    'The Head': { description: 'All Heart cards are debuffed' },
+    'The Goad': { description: 'All Spade cards are debuffed' },
+    'Verdant Leaf': { description: 'All cards debuffed until 1 Joker sold' },
+    'The Ox': { description: 'Playing a #1# sets money to $0' },
+    'The Mark': { description: 'All face cards are drawn face down' },
+    'Violet Vessel': { description: 'Very large blind' },
+    'The Tooth': { description: 'Lose $1 per card played' },
+    'The Fish': { description: 'Cards drawn face down after each hand played' },
+    'Amber Acorn': { description: 'Flips and shuffles all Joker cards' },
+    'The Flint': { description: 'Base Chips and Mult are halved' },
+    'The Psychic': { description: 'Must play 5 cards' },
+    'The Window': { description: 'All Diamond cards are debuffed' },
+    'The Serpent': { description: 'After Play or Discard, always draw 3 cards' },
+    'The Water': { description: 'Start with 0 discards' },
+    'The Manacle': { description: '-1 Hand Size' },
+    'The Wall': { description: 'Extra large blind' },
+    'Crimson Heart': { description: 'One random Joker disabled every hand' },
+    'Cerulean Bell': { description: 'Forces 1 card to always be selected' },
+    'Mystery Blind': { description: '???' }
+};

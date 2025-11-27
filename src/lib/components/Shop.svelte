@@ -3,6 +3,7 @@
     import type { ShopItem } from '$lib/types';
     import ShopSign from './ShopSign.svelte';
     import BackgroundShader from './BackgroundShader.svelte';
+    import Tooltip from './Tooltip.svelte';
 
     function buy(item: ShopItem) {
         game.buyItem(item);
@@ -16,6 +17,75 @@
     $: jokersAndConsumables = $game.shop_items.filter(i => i.type === 'joker' || i.type === 'consumable').slice(0, 2);
     $: vouchers = $game.shop_items.filter(i => i.type === 'voucher');
     $: packs = $game.shop_items.filter(i => i.type === 'pack').slice(0, 2);
+
+    // Tooltip state
+    let hoveredItem: ShopItem | null = null;
+    let tooltipX = 0;
+    let tooltipY = 0;
+
+    function handleItemMouseEnter(e: MouseEvent, item: ShopItem) {
+        hoveredItem = item;
+        updateTooltipPosition(e);
+    }
+
+    function handleItemMouseMove(e: MouseEvent) {
+        if (hoveredItem) updateTooltipPosition(e);
+    }
+
+    function handleItemMouseLeave() {
+        hoveredItem = null;
+    }
+
+    function updateTooltipPosition(e: MouseEvent) {
+        const target = e.currentTarget as HTMLElement;
+        const rect = target.getBoundingClientRect();
+        tooltipX = rect.left + rect.width / 2;
+        tooltipY = rect.top;
+    }
+
+    // Tooltip state for owned jokers
+    let hoveredOwnedJoker: typeof $game.jokers[0] | null = null;
+    let ownedJokerTooltipX = 0;
+    let ownedJokerTooltipY = 0;
+
+    function handleOwnedJokerMouseEnter(e: MouseEvent, joker: typeof $game.jokers[0]) {
+        hoveredOwnedJoker = joker;
+        const target = e.currentTarget as HTMLElement;
+        const rect = target.getBoundingClientRect();
+        ownedJokerTooltipX = rect.left + rect.width / 2;
+        ownedJokerTooltipY = rect.top;
+    }
+
+    function handleOwnedJokerMouseLeave() {
+        hoveredOwnedJoker = null;
+    }
+
+    // Tooltip state for owned consumables
+    let hoveredOwnedConsumable: typeof $game.consumables[0] | null = null;
+    let ownedConsumableTooltipX = 0;
+    let ownedConsumableTooltipY = 0;
+
+    function handleOwnedConsumableMouseEnter(e: MouseEvent, consumable: typeof $game.consumables[0]) {
+        hoveredOwnedConsumable = consumable;
+        const target = e.currentTarget as HTMLElement;
+        const rect = target.getBoundingClientRect();
+        ownedConsumableTooltipX = rect.left + rect.width / 2;
+        ownedConsumableTooltipY = rect.top;
+    }
+
+    function handleOwnedConsumableMouseLeave() {
+        hoveredOwnedConsumable = null;
+    }
+
+    // Get tooltip item from shop item
+    function getTooltipItem(item: ShopItem) {
+        switch (item.type) {
+            case 'joker': return { type: 'joker' as const, data: item.item };
+            case 'consumable': return { type: 'consumable' as const, data: item.item };
+            case 'voucher': return { type: 'voucher' as const, data: item.item };
+            case 'pack': return { type: 'pack' as const, data: item.item };
+        }
+    }
 </script>
 
 <BackgroundShader />
@@ -105,7 +175,12 @@
                     <div class="inventory-slots">
                         {#each Array(5) as _, i}
                             {#if $game.jokers[i]}
-                                <div class="inventory-item filled">
+                                <!-- svelte-ignore a11y-no-static-element-interactions -->
+                                <div 
+                                    class="inventory-item filled"
+                                    on:mouseenter={(e) => handleOwnedJokerMouseEnter(e, $game.jokers[i])}
+                                    on:mouseleave={handleOwnedJokerMouseLeave}
+                                >
                                     <img src={$game.jokers[i].image} alt={$game.jokers[i].name} class="inventory-image" />
                                 </div>
                             {:else}
@@ -126,7 +201,12 @@
                     <div class="inventory-slots">
                         {#each Array($game.max_consumables) as _, i}
                             {#if $game.consumables[i]}
-                                <div class="inventory-item filled">
+                                <!-- svelte-ignore a11y-no-static-element-interactions -->
+                                <div 
+                                    class="inventory-item filled"
+                                    on:mouseenter={(e) => handleOwnedConsumableMouseEnter(e, $game.consumables[i])}
+                                    on:mouseleave={handleOwnedConsumableMouseLeave}
+                                >
                                     <img src={$game.consumables[i].image} alt={$game.consumables[i].name} class="inventory-image" />
                                 </div>
                             {:else}
@@ -159,7 +239,13 @@
                         <!-- Shop Items (Jokers/Consumables) -->
                         <div class="shop-items-well">
                             {#each jokersAndConsumables as item}
-                                <div class="shop-item">
+                                <!-- svelte-ignore a11y-no-static-element-interactions -->
+                                <div 
+                                    class="shop-item"
+                                    on:mouseenter={(e) => handleItemMouseEnter(e, item)}
+                                    on:mousemove={handleItemMouseMove}
+                                    on:mouseleave={handleItemMouseLeave}
+                                >
                                     <div class="price-tag">${item.type === 'joker' ? item.item.cost : 3}</div>
                                     <img src={item.item.image} alt={item.item.name} class="item-image" />
                                     <button 
@@ -181,7 +267,13 @@
                             <div class="voucher-label">ANTE 1 VOUCHER</div>
                             <div class="voucher-items">
                                 {#each vouchers as item}
-                                    <div class="shop-item">
+                                    <!-- svelte-ignore a11y-no-static-element-interactions -->
+                                    <div 
+                                        class="shop-item"
+                                        on:mouseenter={(e) => handleItemMouseEnter(e, item)}
+                                        on:mousemove={handleItemMouseMove}
+                                        on:mouseleave={handleItemMouseLeave}
+                                    >
                                         <div class="price-tag">${item.item.cost}</div>
                                         <img src={item.item.image} alt={item.item.name} class="item-image" />
                                         <button 
@@ -199,7 +291,13 @@
                         <!-- Packs Section -->
                         <div class="packs-well">
                             {#each packs as item}
-                                <div class="shop-item">
+                                <!-- svelte-ignore a11y-no-static-element-interactions -->
+                                <div 
+                                    class="shop-item"
+                                    on:mouseenter={(e) => handleItemMouseEnter(e, item)}
+                                    on:mousemove={handleItemMouseMove}
+                                    on:mouseleave={handleItemMouseLeave}
+                                >
                                     <div class="price-tag">${item.item.cost}</div>
                                     <img src={item.item.image} alt={item.item.name} class="item-image" />
                                     <button 
@@ -224,6 +322,21 @@
         </div>
     </div>
 </div>
+
+<!-- Tooltip for shop items -->
+{#if hoveredItem}
+    <Tooltip item={getTooltipItem(hoveredItem)} visible={true} x={tooltipX} y={tooltipY} />
+{/if}
+
+<!-- Tooltip for owned jokers -->
+{#if hoveredOwnedJoker}
+    <Tooltip item={{ type: 'joker', data: hoveredOwnedJoker }} visible={true} x={ownedJokerTooltipX} y={ownedJokerTooltipY} />
+{/if}
+
+<!-- Tooltip for owned consumables -->
+{#if hoveredOwnedConsumable}
+    <Tooltip item={{ type: 'consumable', data: hoveredOwnedConsumable }} visible={true} x={ownedConsumableTooltipX} y={ownedConsumableTooltipY} />
+{/if}
 
 <style>
     :root {
@@ -519,17 +632,25 @@
         display: flex;
         align-items: center;
         justify-content: center;
+        cursor: pointer;
     }
 
     .inventory-item.empty {
         border: 2px dashed #555;
         background: transparent;
+        cursor: default;
     }
 
     .inventory-item.filled {
         border: 2px solid #555;
         background: rgba(0,0,0,0.3);
         overflow: hidden;
+        transition: transform 0.1s, border-color 0.1s;
+    }
+
+    .inventory-item.filled:hover {
+        transform: translateY(-5px);
+        border-color: #888;
     }
 
     .empty-label { color: #555; font-size: 0.8rem; }
@@ -669,6 +790,16 @@
         align-items: center;
         gap: 8px;
         position: relative;
+        cursor: pointer;
+        transition: transform 0.1s;
+    }
+
+    .shop-item:hover {
+        transform: translateY(-5px);
+    }
+
+    .shop-item:hover .item-image {
+        box-shadow: 6px 6px 0 rgba(0,0,0,0.5);
     }
 
     .price-tag {

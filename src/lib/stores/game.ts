@@ -10,6 +10,8 @@ import { IMPORTED_PLANETS } from './planets_data';
 import { IMPORTED_SPECTRAL } from './spectral_data';
 import { IMPORTED_VOUCHERS } from './vouchers_data';
 import { IMPORTED_PACKS } from './boosterpacks_data';
+import { BOSS_BLINDS } from '../data/blinds';
+import { getRandomTag, type Tag } from '../data/tags';
 
 // Placeholder Jokers for Shop (Now using imported ones)
 const AVAILABLE_JOKERS: Joker[] = IMPORTED_JOKERS.map(j => ({
@@ -83,7 +85,25 @@ function sortCards(cards: Card[], type: 'rank' | 'suit'): Card[] {
     });
 }
 
-const initialState: GameState & { state: 'playing' | 'won_blind' | 'game_over' | 'shop' } = {
+type BlindState = 'available' | 'skipped' | 'upcoming' | 'completed';
+
+interface ExtendedGameState extends GameState {
+    state: 'playing' | 'won_blind' | 'game_over' | 'shop' | 'blind_select';
+    blind_states: {
+        small: BlindState;
+        big: BlindState;
+        boss: BlindState;
+    };
+    small_blind_tag: Tag | null;
+    big_blind_tag: Tag | null;
+    upcoming_boss: { name: string } | null;
+    tags: Tag[];
+    blinds_skipped: number;
+    hands_played_total: number;
+    discards_unused_total: number;
+}
+
+const initialState: ExtendedGameState = {
     money: 0,
     round: 1,
     ante: 1,
@@ -104,23 +124,146 @@ const initialState: GameState & { state: 'playing' | 'won_blind' | 'game_over' |
     },
     current_score: 0,
     target_score: 300,
-    state: 'playing'
+    state: 'blind_select',
+    blind_states: {
+        small: 'available',
+        big: 'upcoming',
+        boss: 'upcoming'
+    },
+    small_blind_tag: null,
+    big_blind_tag: null,
+    upcoming_boss: null,
+    tags: [],
+    blinds_skipped: 0,
+    hands_played_total: 0,
+    discards_unused_total: 0
 };
 
 function createGameStore() {
-    const { subscribe, set, update } = writable<GameState & { state: 'playing' | 'won_blind' | 'game_over' | 'shop' }>(initialState);
+    const { subscribe, set, update } = writable<ExtendedGameState>(initialState);
 
     return {
         subscribe,
         startGame: () => {
-            const deck = shuffle(createDeck());
-            const hand = deck.splice(0, 8);
+            const upcomingBoss = BOSS_BLINDS[Math.floor(Math.random() * BOSS_BLINDS.length)];
             update(state => ({
                 ...initialState,
-                deck,
-                hand: sortCards(hand, 'rank'), // Default sort
-                state: 'playing'
+                state: 'blind_select',
+                blind_states: {
+                    small: 'available',
+                    big: 'upcoming',
+                    boss: 'upcoming'
+                },
+                small_blind_tag: getRandomTag(1),
+                big_blind_tag: getRandomTag(1),
+                upcoming_boss: { name: upcomingBoss },
+                tags: [],
+                blinds_skipped: 0,
+                hands_played_total: 0,
+                discards_unused_total: 0
             }));
+        },
+        enterBlindSelect: () => {
+            update(state => {
+                const ante = state.ante;
+                const round = state.round;
+                const nextBlindIndex = (round - 1) % 3; // 0: Small, 1: Big, 2: Boss
+
+                // Determine which blind is next
+                let blindStates = { ...state.blind_states };
+                
+                if (nextBlindIndex === 0) {
+                    // Starting new ante - reset all blinds
+                    blindStates = {
+                        small: 'available',
+                        big: 'upcoming',
+                        boss: 'upcoming'
+                    };
+                } else if (nextBlindIndex === 1) {
+                    blindStates.big = 'available';
+                } else {
+                    blindStates.boss = 'available';
+                }
+
+                const upcomingBoss = state.upcoming_boss || { name: BOSS_BLINDS[Math.floor(Math.random() * BOSS_BLINDS.length)] };
+
+                return {
+                    ...state,
+                    state: 'blind_select',
+                    blind_states: blindStates,
+                    small_blind_tag: getRandomTag(ante),
+                    big_blind_tag: getRandomTag(ante),
+                    upcoming_boss: upcomingBoss
+                };
+            });
+        },
+        selectBlind: (blindType: 'small' | 'big' | 'boss') => {
+            update(state => {
+                const ante = state.ante;
+                const baseScore = 300 * Math.pow(2, ante - 1);
+                
+                let blindName = 'Small Blind';
+                let newTarget = baseScore;
+                let reward = 3;
+
+                if (blindType === 'big') {
+                    blindName = 'Big Blind';
+                    newTarget = baseScore * 1.5;
+                    reward = 4;
+                } else if (blindType === 'boss') {
+                    blindName = state.upcoming_boss?.name || BOSS_BLINDS[Math.floor(Math.random() * BOSS_BLINDS.length)];
+                    newTarget = baseScore * 2;
+                    reward = 5;
+                }
+
+                const deck = shuffle(createDeck());
+                const hand = deck.splice(0, 8);
+
+                return {
+                    ...state,
+                    deck,
+                    hand: sortCards(hand, state.sort_preference),
+                    current_score: 0,
+                    target_score: Math.floor(newTarget),
+                    hands: 4,
+                    discards: 3,
+                    state: 'playing',
+                    current_blind: {
+                        name: blindName,
+                        score_to_beat: Math.floor(newTarget),
+                        reward
+                    }
+                };
+            });
+        },
+        skipBlind: (blindType: 'small' | 'big') => {
+            update(state => {
+                const tag = blindType === 'small' ? state.small_blind_tag : state.big_blind_tag;
+                const newTags = tag ? [...state.tags, tag] : state.tags;
+                
+                const blindStates = { ...state.blind_states };
+                blindStates[blindType] = 'skipped';
+                
+                // Make the next blind available
+                if (blindType === 'small') {
+                    blindStates.big = 'available';
+                } else {
+                    blindStates.boss = 'available';
+                }
+
+                // Generate new tags for the skipped position
+                const newSmallTag = blindType === 'small' ? null : state.small_blind_tag;
+                const newBigTag = blindType === 'big' ? null : state.big_blind_tag;
+
+                return {
+                    ...state,
+                    blind_states: blindStates,
+                    tags: newTags,
+                    blinds_skipped: state.blinds_skipped + 1,
+                    small_blind_tag: newSmallTag,
+                    big_blind_tag: newBigTag
+                };
+            });
         },
         enterShop: () => {
             update(state => {
@@ -192,7 +335,7 @@ function createGameStore() {
         },
         nextRound: () => {
             update(state => {
-                let { round, ante, current_blind, money, sort_preference } = state;
+                let { round, ante } = state;
 
                 round++;
                 const nextBlindIndex = (round - 1) % 3; // 0: Small, 1: Big, 2: Boss
@@ -201,42 +344,38 @@ function createGameStore() {
                     ante++;
                 }
 
-                // Scaling logic
-                const baseScore = 300 * Math.pow(2, ante - 1);
-                let newTarget = baseScore;
-                let blindName = 'Small Blind';
-                let reward = 3;
+                // Generate new boss for next ante if starting small blind
+                const upcomingBoss = nextBlindIndex === 0 
+                    ? { name: BOSS_BLINDS[Math.floor(Math.random() * BOSS_BLINDS.length)] }
+                    : state.upcoming_boss;
 
-                if (nextBlindIndex === 1) {
-                    blindName = 'Big Blind';
-                    newTarget = baseScore * 1.5;
-                    reward = 4;
-                } else if (nextBlindIndex === 2) {
-                    blindName = 'Boss Blind';
-                    newTarget = baseScore * 2;
-                    reward = 5;
+                // Determine blind states based on which blind is next
+                let blindStates = { ...state.blind_states };
+                
+                if (nextBlindIndex === 0) {
+                    // Starting new ante - reset all blinds
+                    blindStates = {
+                        small: 'available' as BlindState,
+                        big: 'upcoming' as BlindState,
+                        boss: 'upcoming' as BlindState
+                    };
+                } else if (nextBlindIndex === 1) {
+                    blindStates.small = 'completed' as BlindState;
+                    blindStates.big = 'available' as BlindState;
+                } else {
+                    blindStates.big = 'completed' as BlindState;
+                    blindStates.boss = 'available' as BlindState;
                 }
-
-                const deck = shuffle(createDeck());
-                const hand = deck.splice(0, 8);
 
                 return {
                     ...state,
                     round,
                     ante,
-                    current_score: 0,
-                    target_score: Math.floor(newTarget),
-                    hands: 4,
-                    discards: 3,
-                    deck,
-                    hand: sortCards(hand, sort_preference),
-                    state: 'playing',
-                    money: money, // Money is preserved from shop
-                    current_blind: {
-                        name: blindName,
-                        score_to_beat: Math.floor(newTarget),
-                        reward
-                    }
+                    state: 'blind_select',
+                    blind_states: blindStates,
+                    small_blind_tag: getRandomTag(ante),
+                    big_blind_tag: getRandomTag(ante),
+                    upcoming_boss: upcomingBoss
                 };
             });
         },
@@ -286,8 +425,8 @@ function createGameStore() {
                 let finalMult = mult;
 
                 // 1. Boss Blind Debuffs
-                let debuffedCards = playedCards.map(c => c.id);
-                const isBossBlind = state.current_blind.name === 'Boss Blind'; // Simplified check for now
+                // let debuffedCards = playedCards.map(c => c.id);
+                const isBossBlind = state.round % 3 === 0;
 
                 // Example Boss Effects (to be expanded)
                 // For now, we'll just simulate a generic debuff if it's a boss blind
@@ -404,6 +543,39 @@ function createGameStore() {
                     ...state,
                     sort_preference: type,
                     hand: sortCards(state.hand, type)
+                };
+            });
+        },
+        debugBoss: () => {
+            update(state => {
+                const ante = state.ante;
+                const round = (ante - 1) * 3 + 3; // Force to 3rd round of current ante
+
+                // Scaling logic (copied from nextRound for Boss Blind)
+                const baseScore = 300 * Math.pow(2, ante - 1);
+                const newTarget = baseScore * 2;
+                const reward = 5;
+                const blindName = BOSS_BLINDS[Math.floor(Math.random() * BOSS_BLINDS.length)];
+
+                const deck = shuffle(createDeck());
+                const hand = deck.splice(0, 8);
+
+                return {
+                    ...state,
+                    round,
+                    ante,
+                    current_score: 0,
+                    target_score: Math.floor(newTarget),
+                    hands: 4,
+                    discards: 3,
+                    deck,
+                    hand: sortCards(hand, state.sort_preference),
+                    state: 'playing',
+                    current_blind: {
+                        name: blindName,
+                        score_to_beat: Math.floor(newTarget),
+                        reward
+                    }
                 };
             });
         }

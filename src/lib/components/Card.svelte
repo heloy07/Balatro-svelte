@@ -1,5 +1,6 @@
 <script lang="ts">
     import type { Card } from '$lib/types';
+    import Tooltip from './Tooltip.svelte';
 
     export let card: Card;
     export let onClick: () => void;
@@ -32,9 +33,35 @@
     }
 
     $: spritePos = getSpritePosition(card.rank, card.suit);
+    $: tooltipItem = { type: 'card' as const, data: card };
 
     function toggleSelect() {
         if (onClick) onClick();
+    }
+
+    // Tooltip state
+    let isHovered = false;
+    let tooltipX = 0;
+    let tooltipY = 0;
+
+    function handleMouseEnter(e: MouseEvent) {
+        isHovered = true;
+        updateTooltipPosition(e);
+    }
+
+    function handleMouseMove(e: MouseEvent) {
+        if (isHovered) updateTooltipPosition(e);
+    }
+
+    function handleMouseLeave() {
+        isHovered = false;
+    }
+
+    function updateTooltipPosition(e: MouseEvent) {
+        const target = e.currentTarget as HTMLElement;
+        const rect = target.getBoundingClientRect();
+        tooltipX = rect.left + rect.width / 2;
+        tooltipY = rect.top;
     }
 </script>
 
@@ -44,6 +71,9 @@
     class="card {card.edition ? card.edition.toLowerCase() : ''}" 
     class:selected={card.is_selected}
     on:click={toggleSelect}
+    on:mouseenter={handleMouseEnter}
+    on:mousemove={handleMouseMove}
+    on:mouseleave={handleMouseLeave}
 >
     <div 
         class="card-sprite"
@@ -58,6 +88,8 @@
     {/if}
 </div>
 
+<Tooltip item={tooltipItem} visible={isHovered} x={tooltipX} y={tooltipY} />
+
 <style>
     .card {
         width: 142px;  /* 71px * 2 */
@@ -69,6 +101,10 @@
         border-radius: 8px;
         overflow: hidden;
         box-shadow: 3px 3px 0 rgba(0,0,0,0.2);
+        background-color: white;
+        border-style: solid;
+        border-width: 2px;
+        border-color: #ccc;
     }
 
     .card-sprite {
